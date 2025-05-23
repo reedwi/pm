@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { useState } from "react"
-import { Bell, ChevronDown, Home, Star, Briefcase, CheckSquare } from "lucide-react"
+import { Bell, ChevronDown, Home, Star, Briefcase, CheckSquare, Users } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ export function Header() {
   const navItems = [
     { id: "projects", label: "Projects", icon: Briefcase },
     { id: "tasks", label: "Tasks", icon: CheckSquare },
+    { id: "clients", label: "Clients", icon: Users },
     { id: "favorites", label: "Favorites", icon: Star },
   ]
 

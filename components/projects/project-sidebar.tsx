@@ -32,7 +32,17 @@ export function ProjectSidebar({ project, open, onOpenChange }: ProjectSidebarPr
 
   const dueDate = project.endDate ? new Date(project.endDate) : null
   const startDate = project.startDate ? new Date(project.startDate) : null
-  const isOverdue = dueDate && dueDate < new Date() && project.status.category !== "completed"
+  const isOverdue = dueDate && dueDate < new Date() && project.status?.category !== "completed"
+
+  const formatDate = (date: Date | null) => {
+    if (!date || isNaN(date.getTime())) return null
+    return format(date, "MMM d, yyyy")
+  }
+
+  const formatDistance = (date: Date | null) => {
+    if (!date || isNaN(date.getTime())) return null
+    return formatDistanceToNow(date, { addSuffix: true })
+  }
 
   const navigateToProject = () => {
     router.push(`/projects/${project.id}`)
@@ -44,7 +54,9 @@ export function ProjectSidebar({ project, open, onOpenChange }: ProjectSidebarPr
       <SheetContent className="sm:max-w-md overflow-auto p-6">
         <SheetHeader className="space-y-1">
           <div className="flex items-center">
-            <Badge variant={statusVariantMap[project.status.category]}>{project.status.status}</Badge>
+            <Badge variant={statusVariantMap[project.status?.category || 'new']}>
+              {project.status?.status || 'New'}
+            </Badge>
           </div>
           <SheetTitle className="text-xl">{project.name}</SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground">
@@ -73,7 +85,7 @@ export function ProjectSidebar({ project, open, onOpenChange }: ProjectSidebarPr
                 <div className="flex items-center text-sm">
                   <Calendar className="h-4 w-4 mr-2" />
                   <span className="text-muted-foreground mr-1">Start:</span>
-                  <span>{format(startDate, "MMM d, yyyy")}</span>
+                  <span>{formatDate(startDate)}</span>
                 </div>
               )}
               {dueDate && (
@@ -81,7 +93,7 @@ export function ProjectSidebar({ project, open, onOpenChange }: ProjectSidebarPr
                   <Calendar className="h-4 w-4 mr-2" />
                   <span className="text-muted-foreground mr-1">Due:</span>
                   <span className={isOverdue ? "text-destructive font-medium" : ""}>
-                    {format(dueDate, "MMM d, yyyy")}
+                    {formatDate(dueDate)}
                     {isOverdue && " (Overdue)"}
                   </span>
                 </div>
@@ -89,7 +101,7 @@ export function ProjectSidebar({ project, open, onOpenChange }: ProjectSidebarPr
               <div className="flex items-center text-sm">
                 <Clock className="h-4 w-4 mr-2" />
                 <span className="text-muted-foreground mr-1">Updated:</span>
-                <span>{formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
+                <span>{formatDistance(new Date(project.updatedAt)) || 'recently'}</span>
               </div>
             </div>
           </div>
@@ -98,7 +110,7 @@ export function ProjectSidebar({ project, open, onOpenChange }: ProjectSidebarPr
           <div className="space-y-2">
             <h3 className="text-sm font-medium">Team</h3>
             <div className="space-y-3">
-              {project.team.map((member) => (
+              {(project.team || []).map((member) => (
                 <div key={member.id} className="flex items-center">
                   <Avatar className="h-8 w-8 mr-2">
                     <AvatarImage src={member.avatar || undefined} alt={member.name} />

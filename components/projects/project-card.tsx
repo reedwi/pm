@@ -34,7 +34,8 @@ const statusVariantMap: Record<ProjectStatusCategory, "default" | "secondary" | 
 
 export function ProjectCard({ project, onClick }: ProjectCardProps) {
   const dueDate = project.endDate ? new Date(project.endDate) : null
-  const isOverdue = dueDate && dueDate < new Date() && project.status.category !== "completed"
+  const isOverdue = dueDate && dueDate < new Date() && project.status?.category !== "completed"
+  const updatedAt = project.updatedAt ? new Date(project.updatedAt) : null
 
   const handleCardClick = (e: React.MouseEvent) => {
     // Prevent click if it's on the dropdown menu
@@ -44,6 +45,11 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
     onClick()
   }
 
+  const formatDate = (date: Date | null) => {
+    if (!date || isNaN(date.getTime())) return null
+    return formatDistanceToNow(date, { addSuffix: true })
+  }
+
   return (
     <div
       className="rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden flex flex-col cursor-pointer hover:border-primary/50 hover:shadow-md transition-all"
@@ -51,8 +57,8 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
     >
       <div className="p-6 flex-1">
         <div className="flex justify-between items-start">
-          <Badge variant={statusVariantMap[project.status.category]} className="mb-2">
-            {project.status.status}
+          <Badge variant={statusVariantMap[project.status?.category || 'new']} className="mb-2">
+            {project.status?.status || 'New'}
           </Badge>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -94,7 +100,7 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
               <Calendar className="h-4 w-4 mr-1" />
               <span className={isOverdue ? "text-destructive font-medium" : ""}>
                 {isOverdue ? "Overdue: " : "Due: "}
-                {formatDistanceToNow(dueDate, { addSuffix: true })}
+                {formatDate(dueDate)}
               </span>
             </div>
           )}
@@ -103,7 +109,7 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
 
       <div className="p-6 pt-0 mt-4 flex items-center justify-between">
         <AvatarGroup limit={3}>
-          {project.team.map((member) => (
+          {(project.team || []).map((member) => (
             <Avatar key={member.id} className="border-2 border-background">
               <AvatarImage src={member.avatar || undefined} alt={member.name} />
               <AvatarFallback>{member.name.charAt(0)}</AvatarFallback>
@@ -113,7 +119,7 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
 
         <div className="flex items-center text-sm text-muted-foreground">
           <Clock className="h-4 w-4 mr-1" />
-          <span>Updated {formatDistanceToNow(new Date(project.updatedAt), { addSuffix: true })}</span>
+          <span>Updated {formatDate(updatedAt) || 'recently'}</span>
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Plus, Filter, Search, SortAsc, SortDesc } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,15 +8,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ProjectCard } from "./project-card"
 import { ProjectList } from "./project-list"
 import { ProjectFilters } from "./project-filters"
-import { mockProjects } from "@/data/mock-projects"
 import type { Project, ProjectStatusCategory } from "@/types/index"
 import { ProjectTable } from "./project-table"
 import { ViewModeSelector } from "./view-mode-selector"
 import { ProjectSidebar } from "./project-sidebar"
 import type { DateRange } from "react-day-picker"
+import { projectsApi } from "@/api/projects"
+import type { ProjectInsert } from "@/api/projects"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+import { ProjectForm } from "./project-form"
+import { toast } from "sonner"
+import { useOrganization } from "@/contexts/organization-context"
 
 export function ProjectsView() {
-  const [projects, setProjects] = useState<Project[]>(mockProjects)
+  const { currentOrganization, loading: orgLoading } = useOrganization()
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
   const [showFilters, setShowFilters] = useState(false)
   const [viewMode, setViewMode] = useState<"grid" | "list" | "table">("grid")
@@ -27,6 +34,37 @@ export function ProjectsView() {
   const [dateField, setDateField] = useState<"startDate" | "endDate">("endDate")
   const [selectedProject, setSelectedProject] = useState<Project | null>(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  useEffect(() => {
+    fetchProjects()
+  }, [])
+
+  const fetchProjects = async () => {
+    try {
+      setLoading(true)
+      const data = await projectsApi.getAll()
+      setProjects(data)
+    } catch (error) {
+      toast.error(`Failed to fetch projects: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateProject = async (projectData: ProjectInsert) => {
+    try {
+      console.log('Creating project with data:', projectData)
+      const newProject = await projectsApi.create(projectData)
+      console.log('Project created successfully:', newProject)
+      setProjects((prev) => [newProject, ...prev])
+      setCreateDialogOpen(false)
+      toast.success("Project created successfully")
+    } catch (error) {
+      console.error('Failed to create project:', error)
+      toast.error(`Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 
   const handleProjectClick = (project: Project) => {
     setSelectedProject(project)
@@ -42,7 +80,7 @@ export function ProjectsView() {
         (project.description?.toLowerCase() || "").includes(searchQuery.toLowerCase())
 
       // Status filter
-      const matchesStatus = statusFilter === "all" || project.status.category === statusFilter
+      const matchesStatus = statusFilter === "all" || project.status?.category === statusFilter
 
       // Date range filter
       let matchesDateRange = true
@@ -53,17 +91,14 @@ export function ProjectsView() {
         const fieldDate = project[dateField] ? new Date(project[dateField]!) : null
 
         if (fieldDate) {
-          // Check if the project date is after or equal to the from date
           matchesDateRange = fieldDate >= fromDate
 
-          // If there's a to date, check if the project date is before or equal to the to date
           if (dateRange.to && matchesDateRange) {
             const toDate = new Date(dateRange.to)
             toDate.setHours(23, 59, 59, 999)
             matchesDateRange = fieldDate <= toDate
           }
         } else {
-          // If the project doesn't have the date we're filtering by, exclude it
           matchesDateRange = false
         }
       }
@@ -71,7 +106,6 @@ export function ProjectsView() {
       return matchesSearch && matchesStatus && matchesDateRange
     })
     .sort((a, b) => {
-      // Sort by selected field
       if (sortBy === "name") {
         return sortOrder === "asc" ? a.name.localeCompare(b.name) : b.name.localeCompare(a.name)
       } else if (sortBy === "endDate") {
@@ -83,20 +117,47 @@ export function ProjectsView() {
           : new Date(b.endDate).getTime() - new Date(a.endDate).getTime()
       } else if (sortBy === "status") {
         return sortOrder === "asc"
-          ? a.status.status.localeCompare(b.status.status)
-          : b.status.status.localeCompare(a.status.status)
+          ? (a.status?.status || "").localeCompare(b.status?.status || "")
+          : (b.status?.status || "").localeCompare(a.status?.status || "")
       }
       return 0
     })
+
+  if (orgLoading || loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    )
+  }
+
+  if (!currentOrganization) {
+    return (
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <h3 className="text-lg font-medium">No organization found</h3>
+        <p className="text-muted-foreground mt-1">Please join or create an organization to continue</p>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <h1 className="text-3xl font-bold">Projects</h1>
-        <Button className="sm:w-auto w-full">
-          <Plus className="h-4 w-4 mr-2" />
-          New Project
-        </Button>
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="sm:w-auto w-full">
+              <Plus className="h-4 w-4 mr-2" />
+              New Project
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create New Project</DialogTitle>
+            </DialogHeader>
+            <ProjectForm onSubmit={handleCreateProject} organizationId={currentOrganization.id} />
+          </DialogContent>
+        </Dialog>
       </div>
 
       <div className="flex flex-col md:flex-row gap-4">
